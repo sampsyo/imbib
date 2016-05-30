@@ -96,14 +96,14 @@ def scrape_acm(url):
         query = parse_qs(parts.query)
         if 'id' in query:
             cite_id = query['id'][0]
-            return dump_bibtex_entry('key', acm_simplify(acm_fetch(cite_id)))
+            return acm_simplify(acm_fetch(cite_id))
     return None
 
 
 SCRAPERS = [scrape_acm]
 
 
-def url_to_bib(url):
+def url_to_entry(url):
     for scrape in SCRAPERS:
         entry = scrape(url)
         if entry:
@@ -114,7 +114,9 @@ def convert(in_stream, out_stream):
     in_text = in_stream.read()
     for match in re.finditer(CITE_RE, in_text):
         key, url = match.groups()
-        print(key, url_to_bib(url))
+        entry = url_to_entry(url)
+        if entry:
+            out_stream.write(dump_bibtex_entry(key, entry))
 
 
 @click.command()
