@@ -40,7 +40,19 @@ def acm_raw_bibtex(acm_id):
 
 def fetch_acm(acm_id):
     entries = [parse_bibtex_single(e) for e in acm_raw_bibtex(acm_id)]
-    print(entries)
+
+    if len(entries) == 1:
+        # A single citation option.
+        return entries[0]
+
+    else:
+        # Multiple options. This happens a lot when a conference also
+        # publishes a "notices"-style journal, which is never the right
+        # thing to cite.
+        for entry in entries:
+            if entry.type == 'inproceedings':
+                return entry
+        return entries[0]
 
 
 def scrape_acm(url):
@@ -59,7 +71,9 @@ SCRAPERS = [scrape_acm]
 
 def url_to_bib(url):
     for scrape in SCRAPERS:
-        scrape(url)
+        entry = scrape(url)
+        if entry:
+            return entry
 
 
 def convert(in_stream, out_stream):
