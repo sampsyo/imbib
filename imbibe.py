@@ -6,6 +6,7 @@ import re
 from urllib.parse import urlparse, parse_qs
 import bs4
 from pybtex.database.input import bibtex
+import pybtex.database
 from collections import OrderedDict
 
 CITE_RE = r'^\[@([^\]]+)\]:\s*(.*)$'
@@ -24,6 +25,13 @@ def parse_bibtex_single(text):
     """
     doc = parse_bibtex(text)
     return doc.entries.values()[0]
+
+
+def dump_bibtex_entry(key, entry):
+    """Serialize an `Entry` object as a BibTeX string.
+    """
+    data = pybtex.database.BibliographyData({key: entry})
+    return data.to_string('bibtex')
 
 
 def scrape_acm_bibtex(acm_id):
@@ -74,7 +82,7 @@ def acm_simplify(entry):
             ('year', entry.fields['year']),
             ('booktitle', conf_title),
         ])
-        return bibtex.Entry(entry.type, fields, persons=entry.persons)
+        return pybtex.database.Entry(entry.type, fields, persons=entry.persons)
 
     else:
         # TODO: Simplify journals and such.
@@ -88,7 +96,7 @@ def scrape_acm(url):
         query = parse_qs(parts.query)
         if 'id' in query:
             cite_id = query['id'][0]
-            return acm_simplify(acm_fetch(cite_id))
+            return dump_bibtex_entry('key', acm_simplify(acm_fetch(cite_id)))
     return None
 
 
