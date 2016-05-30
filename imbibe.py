@@ -34,7 +34,9 @@ def dump_bibtex_entry(key, entry):
     return data.to_string('bibtex')
 
 
-def scrape_acm_bibtex(acm_id):
+# ACM digital library.
+
+def acm_scrape_bibtex(acm_id):
     """Scrape the BibTeX entries from an ACM DL page. Generate a
     sequence of BibTeX strings.
     """
@@ -50,10 +52,10 @@ def scrape_acm_bibtex(acm_id):
         yield pre.get_text().strip()
 
 
-def acm_fetch(acm_id):
+def acm_scrape_entry(acm_id):
     """Get an `Entry` object for an ACM DL page.
     """
-    entries = [parse_bibtex_single(e) for e in scrape_acm_bibtex(acm_id)]
+    entries = [parse_bibtex_single(e) for e in acm_scrape_bibtex(acm_id)]
 
     if len(entries) == 1:
         # A single citation option.
@@ -89,28 +91,37 @@ def acm_simplify(entry):
         return entry
 
 
-def scrape_acm(url):
+def acm_lookup(url):
+    """Lookup function for the ACM digital library. If the URL is for
+    the ACM DL, return an `Entry` from it. Otherwise, return `None`.
+    """
     # Check whether this is an ACM citation.
     parts = urlparse(url)
     if parts.netloc == 'dl.acm.org' and parts.path == '/citation.cfm':
         query = parse_qs(parts.query)
         if 'id' in query:
             cite_id = query['id'][0]
-            return acm_simplify(acm_fetch(cite_id))
+            return acm_simplify(acm_scrape_entry(cite_id))
     return None
 
 
-SCRAPERS = [scrape_acm]
+# Main driver.
 
-
-def url_to_entry(url):
-    for scrape in SCRAPERS:
-        entry = scrape(url)
+def url_to_entry(url, sources=(acm_lookup,)):
+    """Fetch a bibliography `Entry` object from a given URL using any of
+    the sources. Return `None` if the URL can't be resolved to a
+    citation.
+    """
+    for source in sources:
+        entry = source(url)
         if entry:
             return entry
+    return None
 
 
 def convert(in_stream, out_stream):
+    """Translate a citation URL list to a BibTeX document.
+    """
     in_text = in_stream.read()
     for match in re.finditer(CITE_RE, in_text):
         key, url = match.groups()
