@@ -5,7 +5,8 @@ import click
 import re
 from urllib.parse import urlparse, parse_qs
 import bs4
-import pybtex.database.input.bibtex
+from pybtex.database.input import bibtex
+from collections import OrderedDict
 
 CITE_RE = r'^\[@([^\]]+)\]:\s*(.*)$'
 
@@ -14,7 +15,7 @@ def parse_bibtex(text):
     """Parse a BibTeX document with Pybtex and return a
     `BibliographyData` object.
     """
-    parser = pybtex.database.input.bibtex.Parser()
+    parser = bibtex.Parser()
     return parser.parse_string(text)
 
 
@@ -25,7 +26,10 @@ def parse_bibtex_single(text):
     return doc.entries.values()[0]
 
 
-def acm_raw_bibtex(acm_id):
+def scrape_acm_bibtex(acm_id):
+    """Scrape the BibTeX entries from an ACM DL page. Generate a
+    sequence of BibTeX strings.
+    """
     req = requests.get(
         'http://dl.acm.org/exportformats.cfm',
         params={
@@ -38,8 +42,10 @@ def acm_raw_bibtex(acm_id):
         yield pre.get_text().strip()
 
 
-def fetch_acm(acm_id):
-    entries = [parse_bibtex_single(e) for e in acm_raw_bibtex(acm_id)]
+def acm_fetch(acm_id):
+    """Get an `Entry` object for an ACM DL page.
+    """
+    entries = [parse_bibtex_single(e) for e in scrape_acm_bibtex(acm_id)]
 
     if len(entries) == 1:
         # A single citation option.
@@ -55,6 +61,26 @@ def fetch_acm(acm_id):
         return entries[0]
 
 
+def acm_simplify(entry):
+    """Given an `Entry` object from ACM, produce a simpler, less-wrong
+    `Entry` object.
+    """
+    if entry.type == 'inproceedings':
+        # For conference proceedings, the most reasonable conference
+        # title is typically hiding in the "series" field.
+        conf_title, _ = entry.fields['series'].split()
+        fields = OrderedDict([
+            ('title', entry.fields['title']),
+            ('year', entry.fields['year']),
+            ('booktitle', conf_title),
+        ])
+        return bibtex.Entry(entry.type, fields, persons=entry.persons)
+
+    else:
+        # TODO: Simplify journals and such.
+        return entry
+
+
 def scrape_acm(url):
     # Check whether this is an ACM citation.
     parts = urlparse(url)
@@ -62,7 +88,7 @@ def scrape_acm(url):
         query = parse_qs(parts.query)
         if 'id' in query:
             cite_id = query['id'][0]
-            return fetch_acm(cite_id)
+            return acm_simplify(acm_fetch(cite_id))
     return None
 
 
