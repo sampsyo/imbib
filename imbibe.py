@@ -5,11 +5,27 @@ import click
 import re
 from urllib.parse import urlparse, parse_qs
 import bs4
+import pybtex.database.input.bibtex
 
 CITE_RE = r'^\[@([^\]]+)\]:\s*(.*)$'
 
 
-def fetch_acm(acm_id):
+def parse_bibtex(text):
+    """Parse a BibTeX document with Pybtex and return a
+    `BibliographyData` object.
+    """
+    parser = pybtex.database.input.bibtex.Parser()
+    return parser.parse_string(text)
+
+
+def parse_bibtex_single(text):
+    """Parse an individual BibTeX entry and return an `Entry` object.
+    """
+    doc = parse_bibtex(text)
+    return doc.entries.values()[0]
+
+
+def acm_raw_bibtex(acm_id):
     req = requests.get(
         'http://dl.acm.org/exportformats.cfm',
         params={
@@ -19,8 +35,12 @@ def fetch_acm(acm_id):
     )
     soup = bs4.BeautifulSoup(req.content, 'html.parser')
     for pre in soup.find_all('pre'):
-        bib_entry = pre.get_text().strip()
-        print(bib_entry)
+        yield pre.get_text().strip()
+
+
+def fetch_acm(acm_id):
+    entries = [parse_bibtex_single(e) for e in acm_raw_bibtex(acm_id)]
+    print(entries)
 
 
 def scrape_acm(url):
