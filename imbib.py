@@ -1,4 +1,11 @@
-#!/usr/bin/env python3
+"""Cite papers by their URLs.
+
+Usage:
+
+    $ cat example.md
+    [@threads]: http://dl.acm.org/citation.cfm?id=1065042
+    $ imbib < example.md > example.bib
+"""
 
 import requests
 import click
@@ -8,6 +15,8 @@ import bs4
 from pybtex.database.input import bibtex
 import pybtex.database
 from collections import OrderedDict
+
+__version__ = '0.1.0'
 
 CITE_RE = r'^\[@([^\]]+)\]:\s*(.*)$'
 
